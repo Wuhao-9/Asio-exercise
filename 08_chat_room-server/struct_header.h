@@ -2,11 +2,13 @@
 #define STRUCT_HEADER_H_
 
 #include <string>
+#include <boost\property_tree\ptree.hpp>
+#include <boost\property_tree\json_parser.hpp>
 
 enum class msg_type : char {
-    ROOM_INFO = 0,
-    BIND_NAME,
-    CHAT_MSG
+    ROOM_INFO = 0,  /* "name": "...", "msg": "..." */
+    BIND_NAME,      /* "setName": "..." */
+    CHAT_MSG        /* "msg": "..." */
 };
 
 struct header {
