@@ -97,8 +97,13 @@ private:
             boost::asio::buffer(_read_msg.body(), this->_read_msg.get_body_len()),
             [this](const boost::system::error_code& err, ::size_t /* len */) {
                 if (!err) {
-                    std::cout.write(_read_msg.body(), _read_msg.get_body_len()) << std::endl;
-                    parse_header();
+                    if (_read_msg.get_msg_type() == msg_type::ROOM_INFO) { // 判断是否为服务器消息：ROOM_INFO
+                        // 将tmp_ptr强转为roomInfo结构体的指针，指向服务器发送来的结构体
+                        const roomInfo* tmp_ptr = reinterpret_cast<const roomInfo*>(_read_msg.body());
+                        std::cout << "Client[" << tmp_ptr->name_info.name << "] says: " <<
+                        tmp_ptr->information.msg << std::endl;
+                    }
+                    parse_header(); // 若与客户端通信没问题，则继续接收信息
                 } else if (err != boost::asio::error::operation_aborted) { 
                     std::cerr << "！:  " << err.what() << std::endl;
                     _sock.shutdown(tcp::socket::shutdown_both);
@@ -137,11 +142,17 @@ int main(int argc, char* argv[]) {
         
         std::array<char, chat_message::limit::Max_body_len + 1> line;
         while (std::cin.getline(line.data(), chat_message::limit::Max_body_len + 1)) {
-            chat_message cur_msg;
-            cur_msg.set_body_len(::strlen(line.data()));
-            ::memcpy(cur_msg.body(), line.data(), cur_msg.get_body_len());
-            cur_msg.encode_header();
-            client_instance.write(cur_msg);
+            std::string user_input_info(line.data(), line.data() + ::strlen(line.data()));
+            std::string to_server_buffer;
+            msg_type cur_request_type;
+
+            if (parseMessage(user_input_info, cur_request_type, to_server_buffer) == true) {
+                chat_message message;
+                message.setMsg_header(cur_request_type, to_server_buffer.data(), to_server_buffer.size());
+                client_instance.write(message);
+            } else {
+                std::cerr << "Requset failed!" << std::endl;
+            }
         }
         
         client_instance.close_socket();

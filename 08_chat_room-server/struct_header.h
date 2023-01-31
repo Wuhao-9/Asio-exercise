@@ -4,29 +4,33 @@
 #include <string>
 
 enum class msg_type : char {
-    ROOM_INFO = 1,
+    ROOM_INFO = 0,
     BIND_NAME,
-    CHAT_MSG,
+    CHAT_MSG
 };
 
 struct header {
-    int body_size;
+    ::size_t body_size;
     msg_type type;
 };
 
 struct bindName {
-    char name[32];
-    int name_len;
+    static constexpr int Max_name_length = 32; 
+    char name[Max_name_length];
+    ::size_t name_len;
 };
 
-struct chatMessage {
-    char msg;
-    int msg_len;
+struct chatPublic {
+    static constexpr int Max_msg_length = 256; 
+    char msg[Max_msg_length];
+    ::size_t msg_len;
 };
 
 struct roomInfo {
     bindName name_info;
-    chatMessage information;
+    chatPublic information;
 };
+
+bool parseMessage(const std::string& input, msg_type& type, std::string& output_buf);
 
 #endif // STRUCT_HEADER_H_
