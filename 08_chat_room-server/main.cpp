@@ -17,13 +17,14 @@ public:
         : _sock(io_service) {}
 
     using participant_ptr = std::shared_ptr<chat_participant>;
-    
+    void set_userName(const std::string& name) { _user_name = name; }
     virtual void start() = 0;
     auto& get_socket() { return chat_participant::_sock; }
     virtual ~chat_participant() {}
     virtual void deliver(const chat_message& msg) = 0;
-private:
+protected:
     tcp::socket _sock;
+    std::string _user_name;
 };
 
 class chat_room {
@@ -136,7 +137,7 @@ private:
      * 
      */
         const roomInfo build_ReplyPackage() {
-        roomInfo reply_package_body;
+        roomInfo reply_package_body {};
         reply_package_body.name_info.name_len = _user_name.size();
         ::memcpy(reply_package_body.name_info.name, _user_name.data(), _user_name.size());
         reply_package_body.information.msg_len = _chat_msg.size();
@@ -174,7 +175,6 @@ private:
     chat_room& _room;
     chat_message _read_msg; // 读取客户端请求的buffer
     chat_msg_queue _write_msgs; // 向客户端发送回应的消息队列
-    std::string _user_name;
     std::string _chat_msg;
 };
 
@@ -197,6 +197,8 @@ private:
         _acceptor.async_accept(new_participant->get_socket(), 
             [new_participant, this](const boost::system::error_code& ec) {
                 if (!ec) {
+                    // set default user_name
+                    new_participant->set_userName(new_participant->get_socket().remote_endpoint().address().to_string());
                     new_participant->start();
                 }
 
