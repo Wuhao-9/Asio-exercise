@@ -10,4 +10,4 @@ include_directories(../08_chat_room-server)
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 
-add_executable(${PROJECT_NAME} client.cpp C:/MyProjects/VS_Proj/08_chat_room-server/struct_header.cpp)
+add_executable(${PROJECT_NAME} client.cpp C:/MyProjects/VS_Proj/08_chat_room-server/struct_header.cpp C:/MyProjects/VS_Proj/08_chat_room-server/jsonObj.cpp)

@@ -2,8 +2,16 @@
 #define STRUCT_HEADER_H_
 
 #include <string>
-#include <boost\property_tree\ptree.hpp>
+#include <unordered_map>
 #include <boost\property_tree\json_parser.hpp>
+#include <boost\property_tree\ptree.hpp>
+
+using boost::property_tree::ptree;
+
+namespace json_field {
+    static const char* NAME = "user_name";
+    static const char* MSG = "message";
+}
 
 enum class msg_type : char {
     ROOM_INFO = 0,  /* "name": "...", "msg": "..." */
@@ -33,6 +41,6 @@ struct roomInfo {
     chatPublic information;
 };
 
+const std::string property_tree2jsonString(const ptree& tree);
 bool parseMessage(const std::string& input, msg_type& type, std::string& output_buf);
-
 #endif // STRUCT_HEADER_H_

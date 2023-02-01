@@ -113,36 +113,48 @@ private:
         );
     }
     /**
+     * @brief 反序列化
+     * 
+     * @return ptree 反序列化后的属性树
+     */
+    ptree toPtree() {
+        ptree deserialize_tree;
+        std::istringstream iss(std::string(_read_msg.body(), _read_msg.body() + _read_msg.get_body_len()));
+        boost::property_tree::json_parser::read_json(iss, deserialize_tree);
+        return deserialize_tree;
+    }
+
+    /**
      * @brief 处理客户端发来的信息的回调函数
      * 
      */
     void handler_msg_full() {
         /* should judge name length is ok, but here ignore */
         if (_read_msg.get_msg_type() == msg_type::BIND_NAME) { // case: 设置名字
-            const bindName* tmp_ptr = reinterpret_cast<const bindName*>(_read_msg.body());
-            _user_name.assign(tmp_ptr->name, tmp_ptr->name + tmp_ptr->name_len);
+            auto deserialize_tree = toPtree();
+            _user_name = deserialize_tree.get<std::string>(json_field::NAME);
         } else if (_read_msg.get_msg_type() == msg_type::CHAT_MSG) { // case: 公聊
-            const chatPublic* tmp_ptr = reinterpret_cast<const chatPublic*>(_read_msg.body());
-            _chat_msg.assign(tmp_ptr->msg, tmp_ptr->msg + tmp_ptr->msg_len);
+            auto deserialize_tree = toPtree();
+            _chat_msg = deserialize_tree.get<std::string>(json_field::MSG);
             const auto reply_package_body = build_ReplyPackage();
             chat_message reply_package;
-            reply_package.setMsg_header(msg_type::ROOM_INFO, &reply_package_body, sizeof(reply_package_body));
+            reply_package.setMsg_header(msg_type::ROOM_INFO, reply_package_body.data(), reply_package_body.size());
             _room.deliver(std::move(reply_package));
         } else {
             // invalid request --- do nothing
         }
     }
+    
     /**
      * @brief 构造回应包
      * 
      */
-        const roomInfo build_ReplyPackage() {
+        const std::string build_ReplyPackage() {
         roomInfo reply_package_body {};
-        reply_package_body.name_info.name_len = _user_name.size();
-        ::memcpy(reply_package_body.name_info.name, _user_name.data(), _user_name.size());
-        reply_package_body.information.msg_len = _chat_msg.size();
-        ::memcpy(reply_package_body.information.msg, _chat_msg.data(), _chat_msg.size());
-        return reply_package_body;
+        ptree serialize_tree;
+        serialize_tree.put(json_field::NAME, _user_name);
+        serialize_tree.put(json_field::MSG, _chat_msg);
+        return property_tree2jsonString(serialize_tree);
     }
 
     virtual void deliver(const chat_message& msg) override final {
