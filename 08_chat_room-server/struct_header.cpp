@@ -3,7 +3,7 @@
 // msg format: 请求关键字 消息体
 
 /**
- * @brief 解析客户端输入是否有效, 若有效则序列化为二进制
+ * @brief 解析客户端输入是否有效, 若有效则序列化为json-string，用以网络数据通信
  * @param input 客户端输入的cmd
  * @param type 
  * @param output_buf 
