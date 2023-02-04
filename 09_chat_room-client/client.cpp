@@ -91,6 +91,12 @@ private:
             });
     }
 
+    bool fill_protobufObj(::google::protobuf::Message* obj) {
+        std::string content(_read_msg.body(), _read_msg.body() + _read_msg.get_body_len());
+        auto ok = obj->ParseFromString(content);
+        return ok;
+    }
+
     void parse_body() {
         boost::asio::async_read(
             _sock,
@@ -98,10 +104,10 @@ private:
             [this](const boost::system::error_code& err, ::size_t /* len */) {
                 if (!err) {
                     if (_read_msg.get_msg_type() == msg_type::ROOM_INFO) { // 判断是否为服务器消息：ROOM_INFO
-                        // 将tmp_ptr强转为roomInfo结构体的指针，指向服务器发送来的结构体
-                        const roomInfo* tmp_ptr = reinterpret_cast<const roomInfo*>(_read_msg.body());
-                        std::cout << "Client[" << tmp_ptr->name_info.name << "] says: " <<
-                        tmp_ptr->information.msg << std::endl;
+                        msg_protocol_pb::server_reply deserializer_obj;
+                        fill_protobufObj(&deserializer_obj);
+                        std::cout << "Client[" << deserializer_obj.user_name() << "] says: " <<
+                        deserializer_obj.info() << std::endl;
                     }
                     parse_header(); // 若与客户端通信没问题，则继续接收信息
                 } else if (err != boost::asio::error::operation_aborted) { 

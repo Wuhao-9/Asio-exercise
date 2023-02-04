@@ -14,13 +14,13 @@ using boost::asio::ip::tcp;
 class chat_participant {
 public:
     chat_participant(boost::asio::io_service& io_service)
-        : _sock(io_service) {}
+        : _sock(io_service) { }
 
     using participant_ptr = std::shared_ptr<chat_participant>;
     void set_userName(const std::string& name) { _user_name = name; }
     virtual void start() = 0;
     auto& get_socket() { return chat_participant::_sock; }
-    virtual ~chat_participant() {}
+    virtual ~chat_participant() { }
     virtual void deliver(const chat_message& msg) = 0;
 protected:
     tcp::socket _sock;
@@ -112,21 +112,37 @@ private:
             }
         );
     }
+
+    /**
+     * @brief 反序列化，用客户端的消息填充protoc生成的消息协议对象
+     *
+     * @param obj 消息协议对象
+     */
+    bool fill_protobufObj(::google::protobuf::Message* obj) {
+        std::string content(_read_msg.body(), _read_msg.body() + _read_msg.get_body_len());
+        auto ok = obj->ParseFromString(content);
+        return ok;
+    }
+
     /**
      * @brief 处理客户端发来的信息的回调函数
-     * 
+     *
      */
     void handler_msg_full() {
         /* should judge name length is ok, but here ignore */
         if (_read_msg.get_msg_type() == msg_type::BIND_NAME) { // case: 设置名字
-            const bindName* tmp_ptr = reinterpret_cast<const bindName*>(_read_msg.body());
-            _user_name.assign(tmp_ptr->name, tmp_ptr->name + tmp_ptr->name_len);
+            msg_protocol_pb::set_user_name deserializer;
+            fill_protobufObj(&deserializer);
+            _user_name = deserializer.name();
         } else if (_read_msg.get_msg_type() == msg_type::CHAT_MSG) { // case: 公聊
-            const chatPublic* tmp_ptr = reinterpret_cast<const chatPublic*>(_read_msg.body());
-            _chat_msg.assign(tmp_ptr->msg, tmp_ptr->msg + tmp_ptr->msg_len);
-            const auto reply_package_body = build_ReplyPackage();
+            msg_protocol_pb::chat_publice deserializer;
+            fill_protobufObj(&deserializer);
+            _chat_msg = deserializer.msg();
+
+            std::string serialization_str; // 获取序列化后的二进制信息
+            build_ReplyPackage(&serialization_str);
             chat_message reply_package;
-            reply_package.setMsg_header(msg_type::ROOM_INFO, &reply_package_body, sizeof(reply_package_body));
+            reply_package.setMsg_header(msg_type::ROOM_INFO, serialization_str.data(), serialization_str.size());
             _room.deliver(std::move(reply_package));
         } else {
             // invalid request --- do nothing
@@ -134,15 +150,14 @@ private:
     }
     /**
      * @brief 构造回应包
-     * 
+     *
      */
-        const roomInfo build_ReplyPackage() {
-        roomInfo reply_package_body {};
-        reply_package_body.name_info.name_len = _user_name.size();
-        ::memcpy(reply_package_body.name_info.name, _user_name.data(), _user_name.size());
-        reply_package_body.information.msg_len = _chat_msg.size();
-        ::memcpy(reply_package_body.information.msg, _chat_msg.data(), _chat_msg.size());
-        return reply_package_body;
+    bool build_ReplyPackage(std::string* output) {
+        msg_protocol_pb::server_reply reply_package;
+        reply_package.set_user_name(_user_name);
+        reply_package.set_info(_chat_msg);
+        auto ok = reply_package.SerializeToString(output);
+        return ok;
     }
 
     virtual void deliver(const chat_message& msg) override final {
@@ -181,7 +196,7 @@ private:
 class chat_server {
 public:
     chat_server(boost::asio::io_service& io_service, unsigned short port)
-        : _acceptor(io_service, tcp::endpoint(tcp::v4(), port)) 
+        : _acceptor(io_service, tcp::endpoint(tcp::v4(), port))
         , _room() { }
 
     void start() {
@@ -216,7 +231,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Usage: Chat-room <port> [<port> ...]" << std::endl;
         return -1;
     }
-
+    GOOGLE_PROTOBUF_VERIFY_VERSION;
     try {
         boost::asio::io_service io_service;
         std::list<chat_server> servers;
@@ -225,12 +240,13 @@ int main(int argc, char* argv[]) {
         }
 
         for (auto& server : servers) {
-            server.start();    
+            server.start();
         }
-        
+
         io_service.run();
-    } catch(std::exception& err) {
+    } catch (std::exception& err) {
         std::cerr << err.what() << std::endl;
     }
+    google::protobuf::ShutdownProtobufLibrary();
     return 0;
 }

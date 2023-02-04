@@ -2,6 +2,7 @@
 #define STRUCT_HEADER_H_
 
 #include <string>
+#include "msg_protocol.pb.h"
 
 enum class msg_type : char {
     ROOM_INFO = 0,
@@ -9,26 +10,14 @@ enum class msg_type : char {
     CHAT_MSG
 };
 
+enum class limit {
+    Max_name_length = 32,
+    Max_msg_length = 256
+};
+
 struct header {
     ::size_t body_size;
     msg_type type;
-};
-
-struct bindName {
-    static constexpr int Max_name_length = 32; 
-    char name[Max_name_length];
-    ::size_t name_len;
-};
-
-struct chatPublic {
-    static constexpr int Max_msg_length = 256; 
-    char msg[Max_msg_length];
-    ::size_t msg_len;
-};
-
-struct roomInfo {
-    bindName name_info;
-    chatPublic information;
 };
 
 bool parseMessage(const std::string& input, msg_type& type, std::string& output_buf);
