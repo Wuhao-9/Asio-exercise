@@ -30,8 +30,9 @@ void PrintNum( int x )
 
 int main() {
 	std::shared_ptr< boost::asio::io_service > io_service = std::make_shared<boost::asio::io_service>();
-	std::shared_ptr< boost::asio::io_service::work > work =
-		std::make_shared<boost::asio::io_service::work>(*io_service);
+	// 让io_service的事件循环阻塞，否则若没有注册的事件，run函数会直接退出
+	std::unique_ptr< boost::asio::io_service::work > work =
+		std::make_unique< boost::asio::io_service::work >(*io_service); 
 	boost::asio::io_service::strand strand( *io_service );
 	boost::asio::io_service::strand strand3( *io_service );
 
@@ -41,7 +42,7 @@ int main() {
 	std::forward_list<std::thread> list;
 	for (int x = 0; x < 4; x++) {
 		list.push_front(std::thread([io_service]() {
-			WorkerThread(io_service);
+			WorkerThread(std::move(io_service));
 		}));
 	}
 
@@ -64,6 +65,8 @@ int main() {
 	// io_service->post(  strand.wrap([]() {PrintNum(6); }));
     strand.post([]() {PrintNum(5); });
     strand.post([]() {PrintNum(6); });
+
+	// 释放掉 boost::asio::io_service::work 对象，否则io_service会一直阻塞在run函数中
 	work.reset();
 
 	for (auto& each_thread : list) {
