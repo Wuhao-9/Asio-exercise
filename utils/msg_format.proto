@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package msg_protocol;
+
+message set_user_name {
+    string name = 1;
+}
+
+message chat_publice {
+    string msg = 1;
+}
+
+message server_reply {
+    string user_name = 1;
+    string info = 2;
+}
