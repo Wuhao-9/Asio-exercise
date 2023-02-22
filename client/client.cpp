@@ -35,7 +35,10 @@ int main(int argc, char** argv) {
             std::string input(line.data(), line.data() + std::strlen(line.data()));
             chat_message package;
             if (package.parse_input_AND_pack(input)) {
-                instance_of_client.send_to_serve(package);
+                for (int i = 0; i < 1000; i++) {
+                    // 对chat_client的操作全部在一个线程中，避免资源竞争问题
+                    io_service.post( [&package, &instance_of_client]() mutable {instance_of_client.send_to_serve(package); });
+                }
             } else {
                 std::cerr << "Request failure!" << std::endl;
             }

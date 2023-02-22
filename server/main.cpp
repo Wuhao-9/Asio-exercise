@@ -3,6 +3,7 @@
 #include <boost/asio.hpp>
 
 #include <iostream>
+#include <thread>
 #include <list>
 
 int main(int argc, char* argv[]) {
@@ -24,7 +25,17 @@ int main(int argc, char* argv[]) {
             server.start();
         }
 
-        io_service.run();
+        std::list<std::thread> thread_pool;
+        for (int i = 0; i < std::thread::hardware_concurrency(); i++) {
+            thread_pool.emplace_back([&io_service]() {
+                io_service.run();
+            });
+        }
+
+        for (auto& thread : thread_pool) {
+            thread.join();
+        }
+
     } catch (std::exception& err) {
         std::cerr << err.what() << std::endl;
     }

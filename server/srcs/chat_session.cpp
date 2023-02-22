@@ -5,6 +5,7 @@
 chat_session::chat_session(boost::asio::io_service& io_service, chat_room& room)
     : chat_participant()
     , sock_(io_service)
+    , strand_(io_service)
     , room_(room)
 {
     
@@ -18,25 +19,25 @@ void chat_session::connected_handler() {
 
 void chat_session::do_read_header() {
     boost::asio::async_read(sock_, boost::asio::buffer(recv_buffer_.data(), chat_message::MSG_HEADER_LENGTH),
-        [self = shared_from_this()](const boost::system::error_code& ec, const std::size_t transfered_length) {
+        strand_.wrap([self = shared_from_this()](const boost::system::error_code& ec, const std::size_t transfered_length) {
             if (!ec && self->recv_buffer_.decoding_received_header(transfered_length)) {
                 self->do_read_body();
             } else {
                 self->room_.leave_room(std::move(self));
             }
-        });
+        }));
 }
 
 void chat_session::do_read_body() {
     boost::asio::async_read(sock_, boost::asio::buffer(recv_buffer_.body(), recv_buffer_.get_body_size()),
-        [self = shared_from_this()](const auto& ec, const std::size_t transfered_length) {
+        strand_.wrap([self = shared_from_this()](const auto& ec, const std::size_t transfered_length) {
             if (!ec) {
                 self->parse_recv_content();
                 self->do_read_header();
             } else {
                 self->room_.leave_room(std::move(self));
             }
-        });
+        }));
 }
 
 bool chat_session::fill_protoObj(google::protobuf::Message* obj) {
@@ -87,25 +88,29 @@ bool chat_session::parse_recv_content() {
 }
 
 void chat_session::deliver(const chat_message& msg) {
-    bool no_working = queue_.empty();
-    queue_.push_back(msg);
-    if (no_working) {
-        send_to_client();
-    }
+    strand_.dispatch([self = shared_from_this(), &msg]() {
+        bool no_working = self->queue_.empty();
+        self->queue_.push_back(msg);
+        if (no_working) {
+            self->send_to_client();
+        }
+    });
 }
 
 void chat_session::send_to_client() {
     boost::asio::async_write(sock_, boost::asio::buffer(queue_.front().data(), queue_.front().get_total_size()),
-        [self = shared_from_this()](const auto& ec, const std::size_t transfered_length) {
+        strand_.wrap([self = shared_from_this()](const auto& ec, const std::size_t transfered_length) {
             self->send_handler(ec, transfered_length);
-        });
+        }));
 }
 
 void chat_session::send_handler(const boost::system::error_code& ec, const std::size_t transfered_length) {
-    std::cout << "send sucess..." << std::endl;
     if (!ec) {
         queue_.pop_front();
         if (!queue_.empty()) {
+            // strand_.dispatch( [self = shared_from_this()]() {self->send_to_client();} );
+            // 由于全局就一个pop_front, 是由send_handler()调用的，且send_to_client()与send_handler()相互循环依赖
+            // 故在此无需strand保证第100行的queue_.front()的线程安全问题
             send_to_client();
         }
     } else {

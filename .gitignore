@@ -4,6 +4,8 @@ out
 
 .vs
 
+bin
+
 .vscode
 
 *.json

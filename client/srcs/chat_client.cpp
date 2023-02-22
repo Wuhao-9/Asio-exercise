@@ -1,7 +1,6 @@
 #include "msg_format.pb.h"
 #include "chat_client.hpp"
 #include <iostream>
-
 chat_client::chat_client(boost::asio::io_service& io_service, const tcp::resolver::iterator& endpoint_iterator) 
     : sock_(io_service)
     , remote_endpoint_(endpoint_iterator)
@@ -9,10 +8,9 @@ chat_client::chat_client(boost::asio::io_service& io_service, const tcp::resolve
     , send_queue_() { }
 
 
-
 void chat_client::send_to_serve(const chat_message& msg) {
     bool no_woring = send_queue_.empty();
-    send_queue_.emplace_back(msg);
+    send_queue_.push_back(msg);
     if (no_woring) {
         start_send_queue_msgs();
     }
@@ -21,7 +19,6 @@ void chat_client::send_to_serve(const chat_message& msg) {
 void chat_client::start_send_queue_msgs() {
     boost::asio::async_write(sock_, boost::asio::buffer(send_queue_.front().data(), send_queue_.front().get_total_size()),
         [this](const auto& ec, const std::size_t /*len*/) {
-            static ::size_t count = 0;
             if (!ec) {
                 send_queue_.pop_front();
                 if (!send_queue_.empty()) {

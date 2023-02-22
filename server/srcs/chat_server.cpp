@@ -2,7 +2,7 @@
 
 chat_server::chat_server(boost::asio::io_context& io_context,
                     const std::string& host, const std::string& port)
-    : room_() 
+    : room_(io_context) 
     , acceptor_(io_context) {
         tcp::resolver resolver(io_context);
         tcp::resolver::query query(host, port);
@@ -15,7 +15,7 @@ chat_server::chat_server(boost::asio::io_context& io_context,
 
 chat_server::chat_server(boost::asio::io_service& io_service, unsigned short port)
     : acceptor_(io_service, tcp::endpoint(tcp::v4(), port))
-    , room_() { }
+    , room_(io_service) { }
 
 void chat_server::do_accept() {
     auto new_conn = chat_session::create_newConn(get_io_context(), room_);

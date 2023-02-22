@@ -32,6 +32,7 @@ private:
     chat_room& room_;
     chat_message recv_buffer_;
     msg_queue queue_;  // 为保证消息按序发送
+    boost::asio::io_service::strand strand_;
 };
 
 #endif // CHAT_SESSION_HPP_
